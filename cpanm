@@ -298,6 +298,7 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
           'i|install' => sub { $self->{cmd} = 'install' },
           'info'      => sub { $self->{cmd} = 'info' },
           'look'      => sub { $self->{cmd} = 'look'; $self->{skip_installed} = 0 },
+          'dpan=s'  => sub { $self->{cmd} = 'dpan'; $self->{dpan_dir} = $_[1] },
           'self-upgrade' => sub { $self->{cmd} = 'install'; $self->{skip_installed} = 1; push @ARGV, 'App::cpanminus' },
           'uninst-shadows!'  => \$self->{uninstall_shadows},
           'lwp!'    => \$self->{try_lwp},
@@ -1048,6 +1049,7 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
           }
   
           $self->diag_ok;
+          $dist->{mirror} = File::Spec->rel2abs($name);
   
           my $dir = $self->unpack($file);
           next unless $dir; # unpack failed
@@ -1145,9 +1147,50 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
       };
   }
   
+  sub dpan_index {
+      my($self) = @_;
+
+      return $self->{dpan_index} if $self->{dpan_index};
+
+      my %index;
+      my $gz_file =  File::Spec->catfile($self->{dpan_dir}, 'modules', '02packages.details.txt.gz');
+      return if ( ! -f $gz_file );
+      open( my $fh, '-|', 'gunzip','-c',$gz_file );
+      while (<$fh>) { # skip headers
+          last unless /\S/;
+      }
+      while (<$fh>) {
+          my ($pkg, $ver, $path) = split /\s+/, $_;
+          $ver = undef if $ver && $ver eq 'undef';
+          $index{$pkg} = [$ver,$path];
+      }
+      $self->{dpan_index} = \%index;
+  }
+
+  sub search_dpan_index {
+     my($self, $mod, $want_ver) = @_;
+
+     my $dpan_index = $self->dpan_index;
+     return unless $dpan_index;
+
+     return unless exists $dpan_index->{$mod};
+
+     my ($ver, $pkg) = @{$dpan_index->{$mod}};
+     require version;
+     return [1, $ver] if ( !$want_ver or version->parse($ver) >= version->parse($want_ver) );
+
+     return [0, $ver];
+  }
+
   sub check_module {
       my($self, $mod, $want_ver) = @_;
   
+      if ( $self->{cmd} eq 'dpan' ) {
+          if ( my $pkg = $self->search_dpan_index($mod,$want_ver) ) {
+              return @$pkg;
+          }
+      }
+
       require Module::Metadata;
       my $meta = Module::Metadata->new_from_module($mod, inc => $self->{search_inc})
           or return 0, undef;
@@ -1270,6 +1313,26 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
   
       $self->install_deps_bailout($distname, $dist->{dir}, $depth, @deps)
           or return;
+
+      if ( $self->{cmd} eq 'dpan' ) {
+          if ( $dist->{source} ne 'cpan' ) {
+               $self->diag("skip copying '$target' to dpan, not cpan-like distribution filename\n");
+               return 1;
+          }
+          my $dpan_path = File::Spec->catfile(
+              $self->{dpan_dir},
+              'authors',
+              'id',
+              substr($dist->{cpanid}, 0, 1 ),
+              substr($dist->{cpanid}, 0, 2 ),
+              $dist->{cpanid},
+              $dist->{filename}
+          );
+          File::Path::mkpath(File::Basename::dirname($dpan_path));
+          File::Copy::copy($dist->{mirror}, $dpan_path);
+          $self->diag("Copy to $dpan_path\n");
+          return 1;
+      }
   
       if ($self->{installdeps} && $depth == 0) {
           $self->diag("<== Installed dependencies for $stuff. Finishing.\n");
