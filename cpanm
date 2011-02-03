@@ -1318,6 +1318,10 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
           or return;
 
       if ( $self->{cmd} eq 'dpan' ) {
+          if ($self->{installdeps} && $depth == 0) {
+              $self->diag("<== Download dependencies for $stuff. Finishing.\n");
+              return 1;
+          }
           if ( $dist->{source} ne 'cpan' ) {
                $self->diag("skip copying '$target' to dpan, not cpan-like distribution filename\n");
                return 1;
@@ -1336,7 +1340,7 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
           $self->diag("Copy to $dpan_path\n");
           return 1;
       }
-  
+
       if ($self->{installdeps} && $depth == 0) {
           $self->diag("<== Installed dependencies for $stuff. Finishing.\n");
           return 1;
