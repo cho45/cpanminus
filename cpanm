@@ -298,7 +298,7 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
           'i|install' => sub { $self->{cmd} = 'install' },
           'info'      => sub { $self->{cmd} = 'info' },
           'look'      => sub { $self->{cmd} = 'look'; $self->{skip_installed} = 0 },
-          'dpan=s'  => sub { $self->{cmd} = 'dpan'; $self->{dpan_dir} = $_[1] },
+          'dpan=s'  => sub { $self->{cmd} = 'dpan'; $self->{dpan_dir} = $self->maybe_abs($_[1]) },
           'self-upgrade' => sub { $self->{cmd} = 'install'; $self->{skip_installed} = 1; push @ARGV, 'App::cpanminus' },
           'uninst-shadows!'  => \$self->{uninstall_shadows},
           'lwp!'    => \$self->{try_lwp},
