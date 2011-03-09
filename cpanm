@@ -1251,7 +1251,7 @@ $fatpacked{"App/cpanminus/script.pm"} = <<'APP_CPANMINUS_SCRIPT';
       my(@install, %seen);
       while (my($mod, $ver) = splice @deps, 0, 2) {
           next if $seen{$mod} or $mod eq 'perl' or $mod eq 'Config';
-          if ($self->{cmd} eq 'dpan' || $self->should_install($mod, $ver)) {
+          if ($self->should_install($mod, $ver)) {
               push @install, $mod;
               $seen{$mod} = 1;
           }
